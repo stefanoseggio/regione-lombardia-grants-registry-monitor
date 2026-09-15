@@ -75,6 +75,43 @@ apify call regione-lombardia-grants-registry-monitor --input '{
 
 Every input field is optional (see `.actor/input_schema.json`) — an empty `{}` input runs with all defaults: `onlyNew: true`, no filters, and a `"default"` delta state.
 
+## Instant Terminal Run (cURL)
+
+Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
+
+```bash
+curl -X POST "https://api.apify.com/v2/acts/f0xRlvzERsbgbU1ru/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "maxItems": 50,
+  "onlyNew": true
+}'
+```
+
+## Sample Extracted Dataset (JSON)
+
+One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
+
+```json
+{
+  "record_id": "BAN-2026-04521",
+  "event_id": "a1c4e9f2b5d8a1c4e7f0b3d8f2a1c9d3e6b47058",
+  "event_type": "STATUS_CHANGE",
+  "scraped_at": "2026-09-15T14:22:00.000Z",
+  "is_new": false,
+  "source_url": "https://www.dati.lombardia.it/resource/8g3e-h8jh.json?codice_bando=BAN-2026-04521",
+  "codice_bando": "BAN-2026-04521",
+  "titolo_bando": "Bando per il sostegno alle imprese agricole under 40",
+  "direzione_generale": "Direzione Generale Agricoltura, Alimentazione e Sistemi Verdi",
+  "ente": "Regione Lombardia",
+  "tipo_strumento": "Contributo a fondo perduto",
+  "chiusura_adesione_iso": "2026-11-30T23:59:00.000Z",
+  "computed_status": "CLOSED",
+  "policy_area": "AGRICULTURE",
+  "status_fingerprint": "e7f0b3d8f2a1c9d3e6b47058a1c4e9f2b5d8a1c4"
+}
+```
+
 ## Pricing (Pay-Per-Event)
 
 | Event | Price | Charged when |
