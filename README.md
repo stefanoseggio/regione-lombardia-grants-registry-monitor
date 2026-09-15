@@ -11,10 +11,10 @@
 ## Run on Apify
 
 <p align="center">
-<a href="https://console.apify.com/actors/f0xRlvzERsbgbU1ru"><img alt="Run on Apify Console" src="https://img.shields.io/badge/Run%20on-Apify%20Console-00A8E8?style=for-the-badge&logo=apify&logoColor=white"></a>
+<a href="https://apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor"><img alt="Run on Apify Store" src="https://img.shields.io/badge/Run%20on-Apify%20Store-00A8E8?style=for-the-badge&logo=apify&logoColor=white"></a>
 </p>
 
-This Actor is currently private in Apify Console (`f0xRlvzERsbgbU1ru`) while it finishes final review; once it is published to the Store it will also be runnable directly from `https://apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor`.
+Live and public at [apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor](https://apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor). Owner console: [console.apify.com/actors/f0xRlvzERsbgbU1ru](https://console.apify.com/actors/f0xRlvzERsbgbU1ru).
 
 ## What this Actor does
 
