@@ -3,18 +3,18 @@
 
 <p align="center">
 <a href="https://apify.com"><img alt="Built for Apify" src="https://img.shields.io/badge/Built%20for-Apify-00A8E8?style=flat-square&logo=apify&logoColor=white"></a>
-<a href="#pricing-pay-per-event"><img alt="Pay-Per-Event" src="https://img.shields.io/badge/Pay--Per--Event-from%20%240.008-brightgreen?style=flat-square"></a>
+<a href="#cost--byok-disclosure"><img alt="Pay-Per-Event" src="https://img.shields.io/badge/Pay--Per--Event-from%20%240.008-brightgreen?style=flat-square"></a>
 <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript&logoColor=white"></a>
 <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square"></a>
 </p>
-
-## Run on Apify
 
 <p align="center">
 <a href="https://apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor"><img alt="Run on Apify Store" src="https://img.shields.io/badge/Run%20on-Apify%20Store-00A8E8?style=for-the-badge&logo=apify&logoColor=white"></a>
 </p>
 
 Live and public at [apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor](https://apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor). Owner console: [console.apify.com/actors/f0xRlvzERsbgbU1ru](https://console.apify.com/actors/f0xRlvzERsbgbU1ru).
+
+**This Actor monitors Regione Lombardia's official regional grants and tenders register (`dati.lombardia.it`, Lombardy, Italy) and delivers a `NEW_LISTING` / `STATUS_CHANGE` / `UPDATED` delta feed on whatever recurring schedule you configure through Apify's own Scheduler.**
 
 ## What this Actor does
 
@@ -60,27 +60,29 @@ A single global `hasCompletedBaseline` boolean guards the cold start, so a first
 | Free full-registry preview | Running with `onlyNew: false` on a fresh `deltaStateName` delivers all ~1,912 current bandi as free `BASELINE_SNAPSHOT` records, so you can inspect the real data shape before any event is billed. |
 | Named, resettable delta state | `deltaStateName` isolates baseline progress per schedule/filter combination; `resetState` re-baselines a given state from scratch. |
 
-## Quick start
+## Cost & BYOK Disclosure
 
-Get an Apify API token from your account's **Settings → Integrations** page in Apify Console (or run `apify login` with the Apify CLI), then:
+| Event | Price | Charged when |
+|---|---|---|
+| `NEW_LISTING` | **$0.02** | A `codice_bando` not previously seen appears, after this schedule's baseline is established. |
+| `STATUS_CHANGE` | **$0.02** | `computed_status` moves between `UPCOMING` / `OPEN` / `CLOSED`. |
+| `UPDATED` | **$0.008** | Any other tracked field changes (title correction, directorate reassignment, `presentato` count) with status unchanged. |
+| `BASELINE_SNAPSHOT` / `SNAPSHOT_NO_DIFF` | Free | Delivered only when `onlyNew: false`; never charged. |
+
+- **No third-party API key required.** This Actor's `byok` status is `none`. The optional `socrataAppToken` input is not a paid or required key — it only raises your own request-rate ceiling against the free, public Socrata API and never affects billing.
+- **Unchanged records are never billed.** Every bando is compared against the previous run via a dual SHA-256 fingerprint (`status_fingerprint`, `content_fingerprint`). When both match the last run, the record is classified `SNAPSHOT_NO_DIFF`, suppressed before delivery, and never charged.
+- This is pure Pay-Per-Event (PPE) billing — there's no separate platform subscription. There is no metered free trial of the paid events either: the honest way to see the full dataset before spending anything is a single run with `onlyNew: false` against a fresh `deltaStateName`, which delivers all ~1,912 bandi as free `BASELINE_SNAPSHOT` records.
+
+## Quickstart
+
+Get an Apify API token from your account's **Settings → Integrations** page in Apify Console (or run `apify login` with the Apify CLI). All three examples below call the real Actor at `stefano_seggio/regione-lombardia-grants-registry-monitor`.
+
+### cURL
+
+Runs synchronously and returns the resulting dataset items directly in the response — no polling needed.
 
 ```bash
-apify call regione-lombardia-grants-registry-monitor --input '{
-  "onlyNew": true,
-  "statusFilter": ["OPEN"],
-  "policyAreaFilter": ["ECONOMIC_DEVELOPMENT_INNOVATION"],
-  "deltaStateName": "sme-grants-watch"
-}'
-```
-
-Every input field is optional (see `.actor/input_schema.json`) — an empty `{}` input runs with all defaults: `onlyNew: true`, no filters, and a `"default"` delta state.
-
-## Instant Terminal Run (cURL)
-
-Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
-
-```bash
-curl -X POST "https://api.apify.com/v2/acts/f0xRlvzERsbgbU1ru/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
+curl -X POST "https://api.apify.com/v2/acts/stefano_seggio~regione-lombardia-grants-registry-monitor/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
   "maxItems": 50,
@@ -88,9 +90,68 @@ curl -X POST "https://api.apify.com/v2/acts/f0xRlvzERsbgbU1ru/run-sync-get-datas
 }'
 ```
 
-## Sample Extracted Dataset (JSON)
+### Python (`apify_client`)
 
-One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
+```python
+from apify_client import ApifyClient
+
+client = ApifyClient("<YOUR_API_TOKEN>")
+
+run = client.actor("stefano_seggio/regione-lombardia-grants-registry-monitor").call(run_input={
+    "onlyNew": True,
+    "statusFilter": ["OPEN"],
+    "policyAreaFilter": ["ECONOMIC_DEVELOPMENT_INNOVATION"],
+    "deltaStateName": "sme-grants-watch",
+})
+
+for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+    print(item["event_type"], item["codice_bando"], item["titolo_bando"])
+```
+
+### Node.js (`apify-client`)
+
+```javascript
+import { ApifyClient } from 'apify-client';
+
+const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
+
+const run = await client.actor('stefano_seggio/regione-lombardia-grants-registry-monitor').call({
+  onlyNew: true,
+  statusFilter: ['OPEN'],
+  policyAreaFilter: ['ECONOMIC_DEVELOPMENT_INNOVATION'],
+  deltaStateName: 'sme-grants-watch',
+});
+
+const { items } = await client.dataset(run.defaultDatasetId).listItems();
+for (const item of items) {
+  console.log(item.event_type, item.codice_bando, item.titolo_bando);
+}
+```
+
+Every input field is optional — an empty `{}` input runs with all defaults: `onlyNew: true`, no filters, and a `"default"` delta state. Equivalent Node.js and Python scripts are also included in this repository under [`examples/`](examples).
+
+## Input & Output Schema
+
+### Input
+
+This repository is a documentation/wrapper repo and does not include `.actor/input_schema.json` (see [Contributing & Local Setup](#contributing--local-setup) below) — the fields below are documented from this Actor's own live input contract as described throughout this README and its Store listing.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `onlyNew` | boolean | `true` | Delta mode: deliver only `NEW_LISTING` / `STATUS_CHANGE` / `UPDATED` events since the last run for this `deltaStateName`. Set `false` for a full snapshot (free `BASELINE_SNAPSHOT` / `SNAPSHOT_NO_DIFF` records). |
+| `statusFilter` | array of string | none (no filter) | Restrict delivery to bandi in one or more computed statuses: `UPCOMING`, `OPEN`, `CLOSED`. |
+| `policyAreaFilter` | array of string | none (no filter) | Restrict delivery to one or more of the 14 policy-area categories (e.g. `ECONOMIC_DEVELOPMENT_INNOVATION`, `AGRICULTURE`). |
+| `directorateFilter` | string / array | none (no filter) | Restrict delivery by the source's free-text `direzione_generale` field. |
+| `keyword` | string | none | Passed straight through as Socrata's `$q` server-side search parameter, matched against `titolo_bando`, `direzione_generale`, `ente`, and `tipo_strumento`. |
+| `eventTypes` | array of string | all three | Which of `NEW_LISTING` / `STATUS_CHANGE` / `UPDATED` to deliver when `onlyNew` is on. |
+| `deltaStateName` | string | `"default"` | Names the persisted delta/baseline state, so different schedules or filter sets never share or clobber each other's progress. |
+| `resetState` | boolean | `false` | Forgets the named delta state and re-baselines it from scratch on the next run. |
+| `socrataAppToken` | string | none | Optional, free Socrata app token that raises your own request-rate ceiling against the source API. Never affects billing. |
+| `maxItems` | integer | not stated in this repo's own docs | Caps the number of records returned in a single run. |
+
+### Output
+
+One dataset record per delta event, matching `.actor/dataset_schema.json` on the live Actor:
 
 ```json
 {
@@ -112,16 +173,23 @@ One real record from this Actor's own dataset, matching `.actor/dataset_schema.j
 }
 ```
 
-## Pricing (Pay-Per-Event)
-
-| Event | Price | Charged when |
+| Field | Type | Description |
 |---|---|---|
-| `NEW_LISTING` | **$0.02** | A `codice_bando` not previously seen appears, after this schedule's baseline is established. |
-| `STATUS_CHANGE` | **$0.02** | `computed_status` moves between `UPCOMING` / `OPEN` / `CLOSED`. |
-| `UPDATED` | **$0.008** | Any other tracked field changes (title correction, directorate reassignment, `presentato` count) with status unchanged. |
-| `BASELINE_SNAPSHOT` / `SNAPSHOT_NO_DIFF` | Free | Delivered only when `onlyNew: false`; never charged. |
-
-This is pure Pay-Per-Event (PPE) billing on Apify — there's no separate platform subscription and no BYOK requirement, since the underlying Socrata API is free and public (the optional `socrataAppToken` input only raises your own request-rate ceiling, it never affects billing). There is no metered free trial of the paid events either: the honest way to see the full dataset before spending anything is a single run with `onlyNew: false` against a fresh `deltaStateName`, which delivers all ~1,912 bandi as free `BASELINE_SNAPSHOT` records.
+| `record_id` | string | This dataset record's own id — the source's `codice_bando`. |
+| `event_id` | string | Unique id for this specific delta event (record + change). |
+| `event_type` | string | `BASELINE_SNAPSHOT`, `NEW_LISTING`, `STATUS_CHANGE`, `UPDATED`, or `SNAPSHOT_NO_DIFF`. |
+| `scraped_at` | string (ISO 8601) | When this run fetched the record. |
+| `is_new` | boolean | Whether `codice_bando` had never been seen before this event. |
+| `source_url` | string | Direct Socrata SODA API URL for this record. |
+| `codice_bando` | string | The source's own bando identifier. |
+| `titolo_bando` | string | Bando title, as published. |
+| `direzione_generale` | string | Issuing regional directorate (free text in the source). |
+| `ente` | string | Publishing body (typically "Regione Lombardia"). |
+| `tipo_strumento` | string | Type of funding instrument, e.g. grant vs. contribution. |
+| `chiusura_adesione_iso` | string (ISO 8601) | Closing date/time used to compute `computed_status`. |
+| `computed_status` | string | This Actor's own derived lifecycle status: `UPCOMING`, `OPEN`, or `CLOSED` — not published by the source. |
+| `policy_area` | string | One of the 14 policy-area taxonomy categories, classified from `direzione_generale`. |
+| `status_fingerprint` | string | SHA-256 hash of `computed_status`, used to detect `STATUS_CHANGE` across runs. |
 
 ## Why not just scrape it yourself
 
@@ -138,6 +206,16 @@ This is pure Pay-Per-Event (PPE) billing on Apify — there's no separate platfo
 - The policy-area taxonomy will classify anything genuinely new as `UNCLASSIFIED` until the mapping is updated, since it's built from a point-in-time snapshot of the dataset's own value distribution.
 
 Full details, including a real live-fetched example record and the offset-pagination race condition, are documented in the Actor's own README on Apify Console.
+
+## Contributing & Local Setup
+
+**This repository is a documentation and integration wrapper, not the Actor's source.** It intentionally contains only this README, the [`LICENSE`](LICENSE), and ready-to-run [`examples/`](examples) scripts — there is no `src/` directory here, and there is nothing to `git clone && apify run` against. The Actor's actual scraping, fingerprinting and delta-engine implementation is proprietary and runs privately on Apify's platform; it is not published in this GitHub repository.
+
+What you *can* do here:
+
+- Run the Actor for real via the [Apify Store](https://apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor), the CLI (`apify call regione-lombardia-grants-registry-monitor --input '{...}'`), or the API/SDK examples above — no source access is needed to use it.
+- Open an issue or PR against this repo for anything that *is* here: README corrections, the `examples/` Node.js/Python snippets, or licensing questions on the wrapper content itself.
+- For bug reports or feature requests against the Actor's actual behavior, use the Issues tab on this repo or on the [Apify Store listing](https://apify.com/stefano_seggio/regione-lombardia-grants-registry-monitor) — they route to the same maintainer either way.
 
 ## Code snippets
 
