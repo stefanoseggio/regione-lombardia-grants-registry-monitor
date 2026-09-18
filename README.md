@@ -130,6 +130,61 @@ for (const item of items) {
 
 Every input field is optional — an empty `{}` input runs with all defaults: `onlyNew: true`, no filters, and a `"default"` delta state. Equivalent Node.js and Python scripts are also included in this repository under [`examples/`](examples).
 
+## Use this from Claude Desktop, Cursor, or Windsurf (via MCP)
+
+This Actor is also reachable as an MCP server through Apify's own hosted `@apify/actors-mcp-server`, scoped to just this Actor via a `?tools=` query string - not the full Delta Registry fleet.
+
+**Claude Desktop** (via the `mcp-remote` stdio bridge):
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-regione-lombardia-grants-registry-monitor": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.apify.com/?tools=stefano_seggio/regione-lombardia-grants-registry-monitor",
+        "--header",
+        "Authorization: Bearer ${APIFY_TOKEN}"
+      ]
+    }
+  }
+}
+```
+
+**Cursor** (native HTTP transport):
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-regione-lombardia-grants-registry-monitor": {
+      "url": "https://mcp.apify.com/?tools=stefano_seggio/regione-lombardia-grants-registry-monitor",
+      "headers": {
+        "Authorization": "Bearer ${APIFY_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Windsurf** (uses `serverUrl`, not `url`):
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-regione-lombardia-grants-registry-monitor": {
+      "serverUrl": "https://mcp.apify.com/?tools=stefano_seggio/regione-lombardia-grants-registry-monitor",
+      "headers": {
+        "Authorization": "Bearer ${env:APIFY_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Replace `${APIFY_TOKEN}` with a real token from [Apify Console → Settings → Integrations](https://console.apify.com/settings/integrations). Note that `mcp-remote` does not expand shell environment variables inside the JSON string itself - paste the literal token and keep this file out of version control; Windsurf's `${env:APIFY_TOKEN}` genuinely does resolve from your environment. For the full 28-actor Delta Registry MCP configuration across all three clients, see [MCP_INTEGRATION.md](https://github.com/stefanoseggio/delta-registry-website/blob/main/MCP_INTEGRATION.md).
+
 ## Input & Output Schema
 
 ### Input
@@ -140,14 +195,16 @@ This repository is a documentation/wrapper repo and does not include `.actor/inp
 |---|---|---|---|
 | `onlyNew` | boolean | `true` | Delta mode: deliver only `NEW_LISTING` / `STATUS_CHANGE` / `UPDATED` events since the last run for this `deltaStateName`. Set `false` for a full snapshot (free `BASELINE_SNAPSHOT` / `SNAPSHOT_NO_DIFF` records). |
 | `statusFilter` | array of string | none (no filter) | Restrict delivery to bandi in one or more computed statuses: `UPCOMING`, `OPEN`, `CLOSED`. |
-| `policyAreaFilter` | array of string | none (no filter) | Restrict delivery to one or more of the 14 policy-area categories (e.g. `ECONOMIC_DEVELOPMENT_INNOVATION`, `AGRICULTURE`). |
+| `policyAreaFilter` | array of string | none (no filter) | Restrict delivery to one or more of the 14 policy-area categories (e.g. `ECONOMIC_DEVELOPMENT_INNOVATION`, `AGRICULTURE_FOOD`). |
 | `directorateFilter` | string / array | none (no filter) | Restrict delivery by the source's free-text `direzione_generale` field. |
 | `keyword` | string | none | Passed straight through as Socrata's `$q` server-side search parameter, matched against `titolo_bando`, `direzione_generale`, `ente`, and `tipo_strumento`. |
 | `eventTypes` | array of string | all three | Which of `NEW_LISTING` / `STATUS_CHANGE` / `UPDATED` to deliver when `onlyNew` is on. |
 | `deltaStateName` | string | `"default"` | Names the persisted delta/baseline state, so different schedules or filter sets never share or clobber each other's progress. |
 | `resetState` | boolean | `false` | Forgets the named delta state and re-baselines it from scratch on the next run. |
 | `socrataAppToken` | string | none | Optional, free Socrata app token that raises your own request-rate ceiling against the source API. Never affects billing. |
-| `maxItems` | integer | not stated in this repo's own docs | Caps the number of records returned in a single run. |
+| `maxItems` | integer | `20` | Caps the number of records returned in a single run. Leave unset for no limit — the full register is only ~1,912 rows. |
+| `requestTimeoutSecs` | integer | `30` | Per-request timeout against the Socrata API. |
+| `maxRetries` | integer | `4` | Retry attempts (exponential backoff with jitter) for a 429/5xx response before a page fetch is given up on as failed. |
 
 ### Output
 
@@ -168,7 +225,7 @@ One dataset record per delta event, matching `.actor/dataset_schema.json` on the
   "tipo_strumento": "Contributo a fondo perduto",
   "chiusura_adesione_iso": "2026-11-30T23:59:00.000Z",
   "computed_status": "CLOSED",
-  "policy_area": "AGRICULTURE",
+  "policy_area": "AGRICULTURE_FOOD",
   "status_fingerprint": "e7f0b3d8f2a1c9d3e6b47058a1c4e9f2b5d8a1c4"
 }
 ```
@@ -190,6 +247,8 @@ One dataset record per delta event, matching `.actor/dataset_schema.json` on the
 | `computed_status` | string | This Actor's own derived lifecycle status: `UPCOMING`, `OPEN`, or `CLOSED` — not published by the source. |
 | `policy_area` | string | One of the 14 policy-area taxonomy categories, classified from `direzione_generale`. |
 | `status_fingerprint` | string | SHA-256 hash of `computed_status`, used to detect `STATUS_CHANGE` across runs. |
+
+Additional fields present in `.actor/dataset_schema.json` but not shown above: `apertura_adesione_iso` (opening date/time), `presentato` (applications submitted so far, normalized to a number), `changed_fields` (populated on `STATUS_CHANGE`/`UPDATED`), `content_fingerprint` (SHA-256 over every other tracked field, drives `UPDATED` classification), and `license` (this dataset's license framing, per the live Actor's schema).
 
 ## Why not just scrape it yourself
 
