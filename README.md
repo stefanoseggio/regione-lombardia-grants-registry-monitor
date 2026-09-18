@@ -72,6 +72,7 @@ A single global `hasCompletedBaseline` boolean guards the cold start, so a first
 - **No third-party API key required.** This Actor's `byok` status is `none`. The optional `socrataAppToken` input is not a paid or required key — it only raises your own request-rate ceiling against the free, public Socrata API and never affects billing.
 - **Unchanged records are never billed.** Every bando is compared against the previous run via a dual SHA-256 fingerprint (`status_fingerprint`, `content_fingerprint`). When both match the last run, the record is classified `SNAPSHOT_NO_DIFF`, suppressed before delivery, and never charged.
 - This is pure Pay-Per-Event (PPE) billing — there's no separate platform subscription. There is no metered free trial of the paid events either: the honest way to see the full dataset before spending anything is a single run with `onlyNew: false` against a fresh `deltaStateName`, which delivers all ~1,912 bandi as free `BASELINE_SNAPSHOT` records.
+- **Actor-start fee:** $0.00005/GB-memory, charged once per run (not per record), per the Store listing's own Pricing tab — separate from the per-event prices above.
 
 ## Quickstart
 
